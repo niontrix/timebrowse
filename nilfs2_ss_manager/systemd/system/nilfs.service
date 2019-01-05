@@ -1,0 +1,10 @@
+[Unit]
+Description=This script initiates or shuts down nilfs snapshot manager.
+After=syslog.target
+
+[Service]
+ExecStart=/usr/local/bin/nilfs2_ss_manager
+Type=forking
+
+[Install]
+WantedBy=multi-user.target
