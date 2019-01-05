@@ -14,7 +14,7 @@ __copyright__ = "Copyright (c) 2011 - Jiro SEKIBA <jir@unicus.jp>"
 __license__   = "GPL2"
 __version__   = "0.6"
 
-import commands
+import subprocess
 import gtk
 import nautilus
 import sys
@@ -209,10 +209,10 @@ class NILFSMounts:
             relpath = os.path.relpath(realpath, mounts['mp'])
             return  self.list_history(mounts['cps'], relpath)
 
-        except KeyError, (e):
+        except KeyError as e:
             sys.stderr.write("configuration is not valid. missig %s key\n" % e)
 
-        except NILFSException, (e):
+        except NILFSException as e:
             sys.stderr.write(str(e) + "\n")
 
         return None
@@ -246,7 +246,7 @@ class PixbufFactory:
             #MS Office documents (non ooxml formats)
             pdf = self.topdf(path)
         else:
-            m = commands.getstatusoutput("file %s" % path)
+            m = subprocess.getstatusoutput("file %s" % path)
             if m[0] != 0 or not re.match(".* text.*", m[1]):
                 print >> sys.stderr, "mime type: %s" % mime
                 print >> sys.stderr, "magic: %s" % m[1]
@@ -266,7 +266,7 @@ class PixbufFactory:
 
     def __execute_cmd__(self, cmd):
         tmp = tempfile.NamedTemporaryFile(delete=False)
-        ret = commands.getstatusoutput(cmd + " > " + tmp.name)
+        ret = subprocess.getstatusoutput(cmd + " > " + tmp.name)
         if not ret[0] == 0:
             os.unlink(tmp.name)
             return None
@@ -382,7 +382,7 @@ def restore_to(source, dest, confirm_dialog_factory):
     if restore:
         target = os.path.dirname(dest)
         line = "rsync -ax --delete --inplace '%s' '%s'" % (source, target)
-        result = commands.getstatusoutput(line)
+        result = subprocess.getstatusoutput(line)
 
 class FlexibleImage(gtk.DrawingArea):
     def __init__(self):
