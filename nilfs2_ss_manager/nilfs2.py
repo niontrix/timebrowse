@@ -88,10 +88,10 @@ if __name__ == '__main__':
     prev = a.pop(0)
     for e in a:
         if e['date'] == prev['date']:
-            print "%d is same as %d" % (e['cno'], prev['cno'])
-            print e['date']
-            print prev['date']
+            print("%d is same as %d" % (e['cno'], prev['cno']))
+            print(e['date'])
+            print(prev['date'])
         else:
-            print "%d is different from %d" % (e['cno'], prev['cno'])
+            print("%d is different from %d" % (e['cno'], prev['cno']))
         prev = e
        

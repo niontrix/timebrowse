@@ -524,17 +524,17 @@ try:
                 manager.mount_ss()
             mainloop.run()
 
-except VersionException, e:
+except VersionException as e:
     for version in e.version:
         logger.out(syslog.LOG_INFO, version)
 
-except NILFSConfigurationException, e:
+except NILFSConfigurationException as e:
     # Handle conffile errors
     logger.out(syslog.LOG_ERR, "Configuration error in %s" % conffile)
     for error in e.errors:
         logger.out(syslog.LOG_ERR, "  " + error),
 
-except yaml.YAMLError, e:
+except yaml.YAMLError as e:
     # Handle YAML errors
     pos = None
     if (hasattr(e, 'problem') and hasattr(e, 'context_mark') and
