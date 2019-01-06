@@ -252,8 +252,8 @@ class PixbufFactory:
         else:
             m = subprocess.getstatusoutput("file %s" % path)
             if m[0] != 0 or not re.match(".* text.*", m[1]):
-                print >> sys.stderr, "mime type: %s" % mime
-                print >> sys.stderr, "magic: %s" % m[1]
+                print("mime type: %s" % mime, file=sys.stderr)
+                print("magic: %s" % m[1], file=sys.stderr)
                 return None
             pdf = self.topdf(path)
 
