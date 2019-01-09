@@ -1,7 +1,7 @@
 [Unit]
 Description=This script initiates or shuts down nilfs snapshot manager.
 After=syslog.target
-ConditionFileNotEmpty=/etc/nilfs.conf
+ConditionFileNotEmpty=/etc/nilfs_ss.conf
 
 [Service]
 Type=simple
