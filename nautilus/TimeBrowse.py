@@ -15,7 +15,7 @@ __license__   = "GPL2"
 __version__   = "0.6"
 
 import subprocess
-from gi.repository import Gtk
+from gi.repository import Gtk, Gdk
 from gi.repository import Nautilus
 import sys
 import os
@@ -82,7 +82,7 @@ class NILFSMounts:
             raise NILFSException("can not find active NILFS volume in mtab")
 
         # sort by mount point length. the longer, the earlier
-        actives.sort(lambda a, b: -cmp(len(a['mp']), len(b['mp'])))
+        actives.sort(key=lambda a: len(a['mp']))
 
         # Make a dictionary of checkpoints sorted by device name
         # from /proc/mounts
@@ -99,7 +99,7 @@ class NILFSMounts:
 
         # Sort checkpoints by checkpoint number
         for cps in iter(checkpoints.values()):
-            cps.sort(lambda a, b: cmp(a[1], b[1]))
+            cps.sort(key=lambda a: a[1])
 
         for a in actives:
             if a['dev'] in checkpoints:
@@ -392,7 +392,7 @@ class FlexibleImage(Gtk.DrawingArea):
     def __init__(self):
         GObject.GObject.__init__(self)
         self.pixbuf = None
-        self.connect("expose-event", self.expose)
+        self.connect("draw", self.expose)
 
     def expose(self, w, e):
         pix = self.__fit_pixbuf__(self.allocation)
@@ -474,7 +474,7 @@ def create_list_gui(current, icon_factory):
     scroll = Gtk.ScrolledWindow()
     scroll.add(tree)
 
-    frame = Gtk.Frame("History")
+    frame = Gtk.Frame(label="History")
     frame.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
     frame.add(scroll)
     frame.set_size_request(-1,150) #default height
@@ -568,7 +568,7 @@ def create_list_gui(current, icon_factory):
         except StopIteration:
             if not condition.isSet():
                 vbox.remove(searching_history_label)
-                vbox.pack_start(Gtk.Label("no history", True, True, 0)) 
+                vbox.pack_start(Gtk.Label("no history"), True, True, 0)
                 vbox.show_all()  
 
     g = nilfs.get_history(current)
