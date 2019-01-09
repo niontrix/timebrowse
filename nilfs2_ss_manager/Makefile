@@ -10,7 +10,7 @@ all:
 install:
 	@echo "installing nilfs2_ss_manager"
 	python setup.py install --record installed-files.txt
-	@echo "/etc/nilf_ss.conf" >> installed-files.txt
+	@echo "/etc/nilfs_ss.conf" >> installed-files.txt # nilfs_ss.conf is also installed by setup.py but does not get recorded
 
 ifeq ($(SYSTEMD), systemd)
 	@echo "system seems to be using systemd"
