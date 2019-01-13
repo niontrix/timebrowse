@@ -336,10 +336,10 @@ def open_with(path):
     if os.path.isdir(path):
         path += "/"
 
-    mime_type = Gio.content_type_guess(path)
+    mime_type = Gio.content_type_guess(path)[0]
     app_info = Gio.app_info_get_default_for_type(mime_type, False)
     if app_info != None:
-        app_info.launch([Gio.File(path)], context)
+        app_info.launch([Gio.File.new_for_path(path)], context)
     else:
         sys.stderr.write('no application related to "%s"\n' % mime_type)
 
