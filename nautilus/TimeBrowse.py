@@ -15,7 +15,10 @@ __license__   = "GPL2"
 __version__   = "0.6"
 
 import subprocess
-from gi.repository import Gtk, Gdk
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Nautilus", "3.0")
+from gi.repository import Gtk, Gdk, GdkPixbuf
 from gi.repository import Nautilus
 import sys
 import os
@@ -68,9 +71,6 @@ class NILFSMounts:
         On error, this method will raise a NILFSException exception.
         """
 
-        def cmp(a, b):
-            return (a > b) - (a < b)
-
         with open("/etc/mtab") as f:
             entries = self.nilfs_entry_regex.findall(f.read())
 
@@ -115,9 +115,11 @@ class NILFSMounts:
         explained in the docstring of find_nilfs_in_mtab() method.
         """
         mount_list = self.find_nilfs_in_mtab()
-        for e in mount_list:
-            if realpath.startswith(e['mp']):
-                return e 
+        possibleMounts = list(filter(lambda entry: realpath.startswith(entry['mp']), mount_list))
+        possibleMounts.sort(key=lambda m: len(m['mp']), reverse=True)
+        bestMatch = possibleMounts[0]
+        if bestMatch != None:
+            return bestMatch 
         raise NILFSException("file not in NILFS volume: %s" % realpath)
 
 
@@ -231,7 +233,8 @@ class PixbufFactory:
         os.system(server + " &")
 
     def create_thumbnail_pixbuf(self, path):
-        mime = Gio.content_type_guess(path)
+        # content_type_guess returns a tuple with mime type as first element
+        mime = Gio.content_type_guess(path)[0]
         if mime == "application/pdf":
             pdf = path
         elif mime.startswith("image/"):
@@ -304,7 +307,7 @@ class PixbufFactory:
         return pix
 
     def cached_pixbuf(self, path):
-        if not self.thumbnail_cache.has_key(path):
+        if not path in self.thumbnail_cache:
             self.thumbnail_cache[path] = self.create_pixbuf(path)
         return self.thumbnail_cache[path]
 
@@ -394,14 +397,14 @@ class FlexibleImage(Gtk.DrawingArea):
         self.pixbuf = None
         self.connect("draw", self.expose)
 
-    def expose(self, w, e):
-        pix = self.__fit_pixbuf__(self.allocation)
-        x = (self.allocation.width - pix.get_width())/2
-        y = (self.allocation.height - pix.get_height())/2
+    def expose(self, widget, context):
+        allocation = self.get_allocation()
+        pix = self.__fit_pixbuf__(allocation)
+        x = (allocation.width - pix.get_width())/2
+        y = (allocation.height - pix.get_height())/2
 
-        ctxt = self.window.cairo_create()
-        ctxt.set_source_pixbuf(pix,x,y)
-        ctxt.paint()
+        Gdk.cairo_set_source_pixbuf(context, pix, x, y)
+        context.paint()
 
     def set_from_pixbuf(self, pixbuf):
         self.pixbuf = pixbuf
@@ -486,16 +489,16 @@ def create_list_gui(current, icon_factory):
     hbox = Gtk.HBox(False, 0)
     bbox = Gtk.VBox(False, 0)
     copy_to_btn = Gtk.Button("Copy To Desktop")
-    bbox.pack_end(copy_to_btn, False, False, 10);
+    bbox.pack_end(copy_to_btn, False, False, 10)
     restore_to_btn = Gtk.Button("Restore")
-    bbox.pack_end(restore_to_btn, False, False, 10);
+    bbox.pack_end(restore_to_btn, False, False, 10)
     open_in_dir_btn = Gtk.Button("Open in Directory")
-    bbox.pack_end(open_in_dir_btn, False, False, 10);
-    hbox.pack_end(bbox, False, False, 10);
+    bbox.pack_end(open_in_dir_btn, False, False, 10)
+    hbox.pack_end(bbox, False, False, 10)
 
     image = FlexibleImage()
     image.w = image.h = 0
-    hbox.pack_start(image, True, True, 0);
+    hbox.pack_start(image, True, True, 0)
 
     def row_selected(treeview, user):
         path = get_selected_path(treeview)
@@ -535,7 +538,7 @@ def create_list_gui(current, icon_factory):
         if condition.isSet():
             return
         try:
-            e = gen.next() 
+            e = next(gen) 
             if e != None:
                 add_list_entry(e)
             GLib.idle_add(add_history, gen)
@@ -549,7 +552,7 @@ def create_list_gui(current, icon_factory):
         try:
             if gen == None:
                 raise StopIteration()
-            e = gen.next()
+            e = next(gen)
             if e == None:
                 GLib.idle_add(add_first_history, gen)
             else:
