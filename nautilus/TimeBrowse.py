@@ -360,7 +360,7 @@ def confirm_dialog_factory(icon_factory):
         label = Gtk.Label(label=message)
 
         pix = icon_factory.icon_pixbuf(dest)
-        image = Gtk.image_new_from_pixbuf(pix)
+        image = Gtk.Image.new_from_pixbuf(pix)
 
         hbox = Gtk.HBox(False, 0)
         hbox.pack_start(image, False, False, 5)
