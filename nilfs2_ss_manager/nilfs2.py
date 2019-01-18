@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 #
+# copyright(c) 2018 - Tobias Heinlein <dev@tobias-heinlein.com>
 # copyright(c) 2011 - Jiro SEKIBA <jir@unicus.jp>
 #
 # This library is free software; you can redistribute it and/or
@@ -10,10 +11,11 @@
 
 """NILFS2 module"""
 
-__author__    = "Jiro SEKIBA"
-__copyright__ = "Copyright (c) 2011 - Jiro SEKIBA <jir@unicus.jp>"
+__author__    = "Tobias Heinlein, Jiro SEKIBA"
+__copyright__ = """Copyright(c) 2018 - Tobias Heinlein <dev@tobias-heinlein.com>
+Copyright (c) 2011 - Jiro SEKIBA <jir@unicus.jp>"""
 __license__   = "LGPL"
-__version__   = "0.6"
+__version__   = "1.0"
 
 import subprocess
 import re
