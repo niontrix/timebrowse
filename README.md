@@ -1,9 +1,9 @@
 # TimeBrowse
 
-TimeBrowse is a Windows VSS like utility for NILFS2 and Nautilus.
+TimeBrowse is a Windows VSS like utility for [NILFS2](https://en.wikipedia.org/wiki/NILFS) and Nautilus.
 It comes with a snapshot manager and nautilus extension.
-The Snapshot manager manages the snapshot of NILFS.
-The Nautilus extension extends the nautilus property dialog with a column to show the history of the selected item.
+The Snapshot manager manages the NILFS snapshots.
+The Nautilus extension extends the nautilus property dialog with a column that lets you explore the history of a selected item.
 
 ## Install
 
