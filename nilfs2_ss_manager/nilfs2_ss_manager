@@ -24,8 +24,8 @@ import sys
 import argparse
 import gobject
 import daemon
-import daemon.pidlockfile
-import commands
+import lockfile
+import subprocess
 import syslog
 import signal
 
@@ -59,7 +59,7 @@ class Logger:
     def stderr_out(self, prio, string):
         "Print a given string to the standard error output"
         if (syslog.LOG_MASK(prio) & self.priomask):
-            print >> sys.stderr, string
+            print(string, file=sys.stderr)
 
 class NILFSConfigurationException(Exception):
     def __init__(self, errors):
@@ -76,7 +76,7 @@ def match_fs(path, fsnames):
     filesystem name matches one of names in @fsnames.
     """
     cmd = 'stat -fc %T ' + path
-    result = commands.getstatusoutput(cmd)
+    result = subprocess.getstatusoutput(cmd)
     return result[0] == 0 and (result[1] in fsnames)
 
 class NILFSSSManager:
@@ -203,7 +203,7 @@ class NILFSSSManager:
                 self.logger.out(syslog.LOG_INFO, "%s not mounted" % mp)
                 continue  # ignore already unmounted mountpoints
             cmd = 'umount -n %s' % mp
-            result = commands.getstatusoutput(cmd)
+            result = subprocess.getstatusoutput(cmd)
             if result[0] == 0:
                 cp['ss'] = False
                 os.rmdir(mp)
@@ -248,7 +248,7 @@ class NILFSSSManager:
         cmd = "mount -t nilfs2 -n -o ro,cp=%d" % cp['cno']
         cmd += " " + self.ns.device + " " + target
         self.create_dir(target)
-        result = commands.getstatusoutput(cmd)
+        result = subprocess.getstatusoutput(cmd)
         if result[0] != 0:
             self.logger.out(syslog.LOG_CRIT, result[1])
             raise Exception(result[1])
@@ -326,12 +326,12 @@ class NILFSSSManager:
     def mount_tmpfs(self):
         "Create a tmpfs mount on @self.mp"
         cmd = 'mount -t tmpfs none ' + self.mp
-        commands.getstatusoutput(cmd)
+        subprocess.getstatusoutput(cmd)
 
     def unmount_tmpfs(self):
         "Unmount the tmpfs mount on @self.mp"
         cmd = 'umount -t tmpfs ' + self.mp
-        commands.getstatusoutput(cmd)
+        subprocess.getstatusoutput(cmd)
 
     def scan_mounts(self):
         "scan mountpoints from /proc/mounts"
@@ -497,7 +497,7 @@ try:
     if daemonize:
         pidfile = args.pidfile if args.pidfile else conf['pidfile']
         dc = daemon.DaemonContext(
-                    pidfile=daemon.pidlockfile.PIDLockFile(pidfile))
+                    pidfile=lockfile.FileLock(pidfile))
         logger = Logger(sys.argv[0], priomask=priomask)
 
     # Create snapshot managers for every device and mountpoint written

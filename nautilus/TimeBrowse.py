@@ -14,16 +14,19 @@ __copyright__ = "Copyright (c) 2011 - Jiro SEKIBA <jir@unicus.jp>"
 __license__   = "GPL2"
 __version__   = "0.6"
 
-import commands
-import gtk
-import nautilus
+import subprocess
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Nautilus", "3.0")
+from gi.repository import Gtk, Gdk, GdkPixbuf
+from gi.repository import Nautilus
 import sys
 import os
 import re
-import gobject
-import glib
+from gi.repository import GObject
+from gi.repository import GLib
 import time
-import gio
+from gi.repository import Gio
 import tempfile
 import threading
 
@@ -67,6 +70,7 @@ class NILFSMounts:
 
         On error, this method will raise a NILFSException exception.
         """
+
         with open("/etc/mtab") as f:
             entries = self.nilfs_entry_regex.findall(f.read())
 
@@ -78,7 +82,7 @@ class NILFSMounts:
             raise NILFSException("can not find active NILFS volume in mtab")
 
         # sort by mount point length. the longer, the earlier
-        actives.sort(lambda a, b: -cmp(len(a['mp']), len(b['mp'])))
+        actives.sort(key=lambda a: len(a['mp']))
 
         # Make a dictionary of checkpoints sorted by device name
         # from /proc/mounts
@@ -94,8 +98,8 @@ class NILFSMounts:
                     checkpoints[dev] = [cpinfo]
 
         # Sort checkpoints by checkpoint number
-        for cps in checkpoints.itervalues():
-            cps.sort(lambda a, b: cmp(a[1], b[1]))
+        for cps in iter(checkpoints.values()):
+            cps.sort(key=lambda a: a[1])
 
         for a in actives:
             if a['dev'] in checkpoints:
@@ -111,9 +115,11 @@ class NILFSMounts:
         explained in the docstring of find_nilfs_in_mtab() method.
         """
         mount_list = self.find_nilfs_in_mtab()
-        for e in mount_list:
-            if realpath.startswith(e['mp']):
-                return e 
+        possibleMounts = list(filter(lambda entry: realpath.startswith(entry['mp']), mount_list))
+        possibleMounts.sort(key=lambda m: len(m['mp']), reverse=True)
+        bestMatch = possibleMounts[0]
+        if bestMatch != None:
+            return bestMatch 
         raise NILFSException("file not in NILFS volume: %s" % realpath)
 
 
@@ -209,10 +215,10 @@ class NILFSMounts:
             relpath = os.path.relpath(realpath, mounts['mp'])
             return  self.list_history(mounts['cps'], relpath)
 
-        except KeyError, (e):
+        except KeyError as e:
             sys.stderr.write("configuration is not valid. missig %s key\n" % e)
 
-        except NILFSException, (e):
+        except NILFSException as e:
             sys.stderr.write(str(e) + "\n")
 
         return None
@@ -227,11 +233,12 @@ class PixbufFactory:
         os.system(server + " &")
 
     def create_thumbnail_pixbuf(self, path):
-        mime = gio.content_type_guess(path)
+        # content_type_guess returns a tuple with mime type as first element
+        mime = Gio.content_type_guess(path)[0]
         if mime == "application/pdf":
             pdf = path
         elif mime.startswith("image/"):
-            return gtk.gdk.pixbuf_new_from_file(path)
+            return GdkPixbuf.Pixbuf.new_from_file(path)
         elif mime.startswith("text/"):
             pdf = self.topdf(path)
         elif mime.startswith("application/vnd.oasis.opendocument"):
@@ -246,10 +253,10 @@ class PixbufFactory:
             #MS Office documents (non ooxml formats)
             pdf = self.topdf(path)
         else:
-            m = commands.getstatusoutput("file %s" % path)
+            m = subprocess.getstatusoutput("file %s" % path)
             if m[0] != 0 or not re.match(".* text.*", m[1]):
-                print >> sys.stderr, "mime type: %s" % mime
-                print >> sys.stderr, "magic: %s" % m[1]
+                print("mime type: %s" % mime, file=sys.stderr)
+                print("magic: %s" % m[1], file=sys.stderr)
                 return None
             pdf = self.topdf(path)
 
@@ -259,14 +266,14 @@ class PixbufFactory:
             if pdf != path:
                 os.unlink(pdf)
             if ppm:
-                pix = gtk.gdk.pixbuf_new_from_file(ppm)
+                pix = GdkPixbuf.Pixbuf.new_from_file(ppm)
                 os.unlink(ppm)
 
         return pix
 
     def __execute_cmd__(self, cmd):
         tmp = tempfile.NamedTemporaryFile(delete=False)
-        ret = commands.getstatusoutput(cmd + " > " + tmp.name)
+        ret = subprocess.getstatusoutput(cmd + " > " + tmp.name)
         if not ret[0] == 0:
             os.unlink(tmp.name)
             return None
@@ -285,22 +292,22 @@ class PixbufFactory:
         if pix != None:
             return pix
 
-        style = gtk.Style()
+        style = Gtk.Style()
 
-        icon = style.lookup_icon_set(gtk.STOCK_FILE)
-        pix = icon.render_icon(style, gtk.TEXT_DIR_NONE, gtk.STATE_NORMAL,
-                               gtk.ICON_SIZE_DIALOG, None, None)
+        icon = style.lookup_icon_set(Gtk.STOCK_FILE)
+        pix = icon.render_icon(style, Gtk.TextDirection.NONE, Gtk.StateType.NORMAL,
+                               Gtk.IconSize.DIALOG, None, None)
 
         if not os.path.islink(path) and os.path.isdir(path):
             t = "directory"
-            icon = style.lookup_icon_set(gtk.STOCK_DIRECTORY)
-            pix = icon.render_icon(style, gtk.TEXT_DIR_NONE,
-                                   gtk.STATE_NORMAL, gtk.ICON_SIZE_DIALOG,
+            icon = style.lookup_icon_set(Gtk.STOCK_DIRECTORY)
+            pix = icon.render_icon(style, Gtk.TextDirection.NONE,
+                                   Gtk.StateType.NORMAL, Gtk.IconSize.DIALOG,
                                    None, None)
         return pix
 
     def cached_pixbuf(self, path):
-        if not self.thumbnail_cache.has_key(path):
+        if not path in self.thumbnail_cache:
             self.thumbnail_cache[path] = self.create_pixbuf(path)
         return self.thumbnail_cache[path]
 
@@ -308,7 +315,7 @@ class PixbufFactory:
         pix = self.create_pixbuf(path)
         w= 48.;
         h = pix.get_height() * w/ pix.get_width()
-        return pix.scale_simple(int(w), int(h), gtk.gdk.INTERP_BILINEAR)
+        return pix.scale_simple(int(w), int(h), GdkPixbuf.InterpType.BILINEAR)
 
 
 def get_selected_path(treeview):
@@ -323,22 +330,22 @@ def get_selected_path(treeview):
     return v
 
 def open_with(path):
-    context = gtk.gdk.AppLaunchContext()
+    context = Gdk.AppLaunchContext()
     path = os.path.abspath(path)
 
     if os.path.isdir(path):
         path += "/"
 
-    mime_type = gio.content_type_guess(path)
-    app_info = gio.app_info_get_default_for_type(mime_type, False)
+    mime_type = Gio.content_type_guess(path)[0]
+    app_info = Gio.app_info_get_default_for_type(mime_type, False)
     if app_info != None:
-        app_info.launch([gio.File(path)], context)
+        app_info.launch([Gio.File.new_for_path(path)], context)
     else:
         sys.stderr.write('no application related to "%s"\n' % mime_type)
 
 def confirm_dialog_factory(icon_factory):
     def create_dialog(dest):
-        dialog = gtk.Dialog("Confirm", None, gtk.DIALOG_MODAL,
+        dialog = Gtk.Dialog("Confirm", None, Gtk.DialogFlags.MODAL,
                             ("OK", True, "Cancel", False))
 
         t = "file"
@@ -350,24 +357,24 @@ def confirm_dialog_factory(icon_factory):
         message = "There is already a %s with the same name" % t
         message += " in the destination folder.\n"
         message += "Replace it?"
-        label = gtk.Label(message)
+        label = Gtk.Label(label=message)
 
         pix = icon_factory.icon_pixbuf(dest)
-        image = gtk.image_new_from_pixbuf(pix)
+        image = Gtk.Image.new_from_pixbuf(pix)
 
-        hbox = gtk.HBox(False, 0)
+        hbox = Gtk.HBox(False, 0)
         hbox.pack_start(image, False, False, 5)
         hbox.pack_start(label, False, False, 5)
         hbox.show_all()
 
-        dialog.vbox.pack_start(hbox)
+        dialog.vbox.pack_start(hbox, True, True, 0)
 
         return dialog
     return create_dialog
 
 def copy_to_desktop(source, confirm_dialog_factory):
     basename = os.path.basename(source)
-    desktop = glib.get_user_special_dir(glib.USER_DIRECTORY_DESKTOP)
+    desktop = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DESKTOP)
     dest = desktop + "/" + basename
 
     restore_to(source, dest, confirm_dialog_factory)
@@ -382,22 +389,22 @@ def restore_to(source, dest, confirm_dialog_factory):
     if restore:
         target = os.path.dirname(dest)
         line = "rsync -ax --delete --inplace '%s' '%s'" % (source, target)
-        result = commands.getstatusoutput(line)
+        result = subprocess.getstatusoutput(line)
 
-class FlexibleImage(gtk.DrawingArea):
+class FlexibleImage(Gtk.DrawingArea):
     def __init__(self):
-        gtk.DrawingArea.__init__(self)
+        GObject.GObject.__init__(self)
         self.pixbuf = None
-        self.connect("expose-event", self.expose)
+        self.connect("draw", self.expose)
 
-    def expose(self, w, e):
-        pix = self.__fit_pixbuf__(self.allocation)
-        x = (self.allocation.width - pix.get_width())/2
-        y = (self.allocation.height - pix.get_height())/2
+    def expose(self, widget, context):
+        allocation = self.get_allocation()
+        pix = self.__fit_pixbuf__(allocation)
+        x = (allocation.width - pix.get_width())/2
+        y = (allocation.height - pix.get_height())/2
 
-        ctxt = self.window.cairo_create()
-        ctxt.set_source_pixbuf(pix,x,y)
-        ctxt.paint()
+        Gdk.cairo_set_source_pixbuf(context, pix, x, y)
+        context.paint()
 
     def set_from_pixbuf(self, pixbuf):
         self.pixbuf = pixbuf
@@ -420,43 +427,43 @@ class FlexibleImage(gtk.DrawingArea):
             destw = int(w * float(wh)/float(h))
             if destw <= 0:
                 destw = 1
-        return self.pixbuf.scale_simple(destw, desth, gtk.gdk.INTERP_BILINEAR)
+        return self.pixbuf.scale_simple(destw, desth, GdkPixbuf.InterpType.BILINEAR)
 
 def create_list_gui(current, icon_factory):
     nilfs = NILFSMounts()
 
-    store = gtk.ListStore(gobject.TYPE_STRING,
-                          gobject.TYPE_INT64,
-                          gobject.TYPE_STRING,
-                          gobject.TYPE_INT,
-                          gobject.TYPE_STRING,)
+    store = Gtk.ListStore(GObject.TYPE_STRING,
+                          GObject.TYPE_INT64,
+                          GObject.TYPE_STRING,
+                          GObject.TYPE_INT,
+                          GObject.TYPE_STRING,)
     store.clear()
 
-    tree = gtk.TreeView()
+    tree = Gtk.TreeView()
     tree.set_rules_hint(True)
     tree.set_headers_clickable(True)
     tree.set_model(store)
 
-    rederer = gtk.CellRendererText()
+    rederer = Gtk.CellRendererText()
 
-    column = gtk.TreeViewColumn("date", rederer, text=2)
+    column = Gtk.TreeViewColumn("date", rederer, text=2)
     column.set_sort_column_id(1)
     column.set_resizable(True)
     tree.append_column(column)
 
-    column = gtk.TreeViewColumn("size", rederer, text=3)
+    column = Gtk.TreeViewColumn("size", rederer, text=3)
     column.set_sort_column_id(3)
     column.set_resizable(True)
     tree.append_column(column)
 
-    column = gtk.TreeViewColumn("age", rederer, text=4)
+    column = Gtk.TreeViewColumn("age", rederer, text=4)
     column.set_sort_column_id(1) # same as date
     column.set_resizable(True)
     tree.append_column(column)
 
-    tree.enable_model_drag_source(gtk.gdk.BUTTON1_MASK,
+    tree.enable_model_drag_source(Gdk.ModifierType.BUTTON1_MASK,
                                   [('text/uri-list', 0, 1)],
-                                   gtk.gdk.ACTION_COPY)
+                                   Gdk.DragAction.COPY)
     def get_drag_data(tv, context, selection, target_id, etime):
         path = get_selected_path(tv)
         selection.set_uris(["file://%s" % path])
@@ -467,31 +474,31 @@ def create_list_gui(current, icon_factory):
         open_with(path)
     tree.connect("row-activated", double_clicked, None)
 
-    scroll = gtk.ScrolledWindow()
+    scroll = Gtk.ScrolledWindow()
     scroll.add(tree)
 
-    frame = gtk.Frame("History")
-    frame.set_shadow_type(gtk.SHADOW_ETCHED_IN)
+    frame = Gtk.Frame(label="History")
+    frame.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
     frame.add(scroll)
     frame.set_size_request(-1,150) #default height
 
-    vbox = gtk.VBox(False, 0)
-    searching_history_label = gtk.Label("searching history..")
-    vbox.pack_start(searching_history_label)
+    vbox = Gtk.VBox(False, 0)
+    searching_history_label = Gtk.Label(label="searching history..")
+    vbox.pack_start(searching_history_label, True, True, 0)
 
-    hbox = gtk.HBox(False, 0)
-    bbox = gtk.VBox(False, 0)
-    copy_to_btn = gtk.Button("Copy To Desktop")
-    bbox.pack_end(copy_to_btn, False, False, 10);
-    restore_to_btn = gtk.Button("Restore")
-    bbox.pack_end(restore_to_btn, False, False, 10);
-    open_in_dir_btn = gtk.Button("Open in Directory")
-    bbox.pack_end(open_in_dir_btn, False, False, 10);
-    hbox.pack_end(bbox, False, False, 10);
+    hbox = Gtk.HBox(False, 0)
+    bbox = Gtk.VBox(False, 0)
+    copy_to_btn = Gtk.Button("Copy To Desktop")
+    bbox.pack_end(copy_to_btn, False, False, 10)
+    restore_to_btn = Gtk.Button("Restore")
+    bbox.pack_end(restore_to_btn, False, False, 10)
+    open_in_dir_btn = Gtk.Button("Open in Directory")
+    bbox.pack_end(open_in_dir_btn, False, False, 10)
+    hbox.pack_end(bbox, False, False, 10)
 
     image = FlexibleImage()
     image.w = image.h = 0
-    hbox.pack_start(image, True, True, 0);
+    hbox.pack_start(image, True, True, 0)
 
     def row_selected(treeview, user):
         path = get_selected_path(treeview)
@@ -531,10 +538,10 @@ def create_list_gui(current, icon_factory):
         if condition.isSet():
             return
         try:
-            e = gen.next() 
+            e = next(gen) 
             if e != None:
                 add_list_entry(e)
-            glib.idle_add(add_history, gen)
+            GLib.idle_add(add_history, gen)
 
         except StopIteration:
             pass
@@ -545,30 +552,30 @@ def create_list_gui(current, icon_factory):
         try:
             if gen == None:
                 raise StopIteration()
-            e = gen.next()
+            e = next(gen)
             if e == None:
-                glib.idle_add(add_first_history, gen)
+                GLib.idle_add(add_first_history, gen)
             else:
                 image.set_from_pixbuf(icon_factory.cached_pixbuf(e['path']))
                 add_list_entry(e)
 
                 vbox.remove(searching_history_label)
-                vpaned = gtk.VPaned()
+                vpaned = Gtk.VPaned()
                 vpaned.add1(frame)
                 vpaned.add2(hbox)
-                vbox.pack_start(vpaned)
+                vbox.pack_start(vpaned, True, True, 0)
                 vbox.show_all()  
 
-                glib.idle_add(add_history, gen)
+                GLib.idle_add(add_history, gen)
 
         except StopIteration:
             if not condition.isSet():
                 vbox.remove(searching_history_label)
-                vbox.pack_start(gtk.Label("no history")) 
+                vbox.pack_start(Gtk.Label("no history"), True, True, 0)
                 vbox.show_all()  
 
     g = nilfs.get_history(current)
-    glib.idle_add(add_first_history, g)
+    GLib.idle_add(add_first_history, g)
 
     def stop_generator(w, u):
         u.set()
@@ -576,7 +583,7 @@ def create_list_gui(current, icon_factory):
 
     return vbox
 
-class NILFS2PropertyPage(nautilus.PropertyPageProvider):
+class NILFS2PropertyPage(GObject.GObject, Nautilus.PropertyPageProvider):
     def __init__(self):
         self.factory = PixbufFactory()
 
@@ -590,11 +597,12 @@ class NILFS2PropertyPage(nautilus.PropertyPageProvider):
 
         target = f.get_uri()[7:]
 
-        self.property_label = gtk.Label("History")
+        self.property_label = Gtk.Label(label="History")
         self.property_label.show()
 
         self.vbox = create_list_gui(target, self.factory)
         self.vbox.show_all()
 
-        return nautilus.PropertyPage("NautilusPython::nilfs2",
-                                     self.property_label, self.vbox),
+        return Nautilus.PropertyPage(name="NautilusPython::nilfs2",
+                                     label=self.property_label,
+                                     page=self.vbox),

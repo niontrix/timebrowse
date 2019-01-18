@@ -1,10 +1,14 @@
 [Unit]
 Description=This script initiates or shuts down nilfs snapshot manager.
 After=syslog.target
+ConditionFileNotEmpty=/etc/nilfs_ss.conf
 
 [Service]
-ExecStart=/usr/local/bin/nilfs2_ss_manager
-Type=forking
+Type=simple
+PIDFile=/var/run/nilfs.ss.pid
+ExecStart=/usr/local/bin/nilfs2_ss_manager --pidfile /var/run/nilfs.ss.pid
+ExecStop=/bin/kill -s TERM $MAINPID
+RestartSec=2
 
 [Install]
 WantedBy=multi-user.target

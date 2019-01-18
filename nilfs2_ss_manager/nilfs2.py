@@ -15,7 +15,7 @@ __copyright__ = "Copyright (c) 2011 - Jiro SEKIBA <jir@unicus.jp>"
 __license__   = "LGPL"
 __version__   = "0.6"
 
-import commands
+import subprocess
 import re
 import time
 
@@ -27,7 +27,7 @@ class NILFS2:
         self.device = device
 
     def __run_cmd__(self, line):
-        result = commands.getstatusoutput(line)
+        result = subprocess.getstatusoutput(line)
         if result[0] != 0:
             raise Exception(result[1])
         return result[1]
